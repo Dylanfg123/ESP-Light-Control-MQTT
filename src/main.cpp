@@ -1,4 +1,5 @@
 #include <WiFi.h>
+#include <ArduinoOTA.h>
 #include <PubSubClient.h>
 #include <FastLED.h>
 #include <ctype.h>
@@ -20,7 +21,7 @@ CRGB leds[NUM_LEDS];
 
 // brightness steps (4 levels)
 const uint8_t brightnessLevels[] = { 64, 128, 192, 255 };
-uint8_t brightnessIndex = 1;  // start at 128
+uint8_t brightnessIndex = 3;  // start at 255
 
 // static‐color list
 const CRGB staticColorsList[] = {
@@ -58,6 +59,8 @@ class TimedWiFiClient : public WiFiClient {
 TimedWiFiClient wifiClient;
 PubSubClient mqtt(wifiClient);
 char mqttClientId[32];
+char otaHostname[32];
+bool otaStarted = false;
 
 // single routine to perform the actual LED update (OFF or STATIC)
 void updateStrip() {
@@ -172,6 +175,31 @@ void mqttCallback(char* topic, byte* payload, unsigned int len) {
   handleCommand(cmd);
 }
 
+void startOTA() {
+  ArduinoOTA.setHostname(otaHostname);
+  ArduinoOTA.setPassword(OTA_PASSWORD);
+
+  ArduinoOTA.onStart([]() {
+    Serial.println("OTA update starting");
+    currentMode = OFF;
+    updateStrip();
+  });
+  ArduinoOTA.onEnd([]() {
+    Serial.println("\nOTA update complete");
+  });
+  ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
+    const unsigned int percent = total == 0 ? 0 : (progress * 100U) / total;
+    Serial.printf("\rOTA progress: %u%%", percent);
+  });
+  ArduinoOTA.onError([](ota_error_t error) {
+    Serial.printf("\nOTA error %u\n", error);
+  });
+
+  ArduinoOTA.begin();
+  otaStarted = true;
+  Serial.printf("OTA ready at %s.local\n", otaHostname);
+}
+
 // Non-blocking reconnect logic keeps LED updates running during an outage.
 void maintainConnections() {
   static uint32_t lastWifiAttempt = 0;
@@ -197,6 +225,7 @@ void maintainConnections() {
     wifiWasConnected = true;
     lastMqttAttempt = now - MQTT_RETRY_MS;
     Serial.printf("Wi-Fi connected, IP: %s\n", WiFi.localIP().toString().c_str());
+    if (!otaStarted) startOTA();
   }
 
   if (!mqtt.connected() && now - lastMqttAttempt >= MQTT_RETRY_MS) {
@@ -225,6 +254,8 @@ void setup() {
   const uint64_t chipId = ESP.getEfuseMac();
   snprintf(mqttClientId, sizeof(mqttClientId), "ESP32_%04X%08X",
            static_cast<uint16_t>(chipId >> 32), static_cast<uint32_t>(chipId));
+  snprintf(otaHostname, sizeof(otaHostname), "esp-light-%04x%08x",
+           static_cast<uint16_t>(chipId >> 32), static_cast<uint32_t>(chipId));
 
   mqtt.setServer(MQTT_SERVER, MQTT_PORT);
   mqtt.setCallback(mqttCallback);
@@ -233,6 +264,7 @@ void setup() {
 
 void loop() {
   maintainConnections();
+  if (otaStarted && WiFi.status() == WL_CONNECTED) ArduinoOTA.handle();
   if (mqtt.connected()) mqtt.loop();
 
   // one‐time OFF/STATIC updates

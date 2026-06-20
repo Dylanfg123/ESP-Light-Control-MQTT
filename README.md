@@ -29,12 +29,13 @@ Dependencies are installed automatically from `platformio.ini`.
 ## Configuration
 
 1. Copy `include/secrets.example.h` to `include/secrets.h`.
-2. Enter the Wi-Fi and MQTT credentials in `include/secrets.h`.
+2. Enter the Wi-Fi, MQTT, and OTA credentials in `include/secrets.h`.
 3. Set `MQTT_SERVER`, `MQTT_PORT`, and `MQTT_TOPIC` near the top of
    `src/main.cpp`.
 4. Adjust `DATA_PIN` and `NUM_LEDS` in `src/main.cpp` if the hardware differs.
 
-`include/secrets.h` is excluded from Git. Do not commit credentials.
+`include/secrets.h` is excluded from Git. Do not commit credentials. The OTA
+password in this file must match the `--auth` value in the local `ota.ini`.
 
 ## MQTT
 
@@ -87,6 +88,28 @@ Build, Upload, and Monitor commands can be used instead.
 If upload cannot find a port, verify that the board's USB-to-serial driver is
 installed and that a COM port appears in Device Manager. Some ESP32 boards
 require holding the `BOOT` button while the upload begins.
+
+## OTA Updates
+
+The first OTA-enabled firmware must be uploaded over USB. After it connects to
+Wi-Fi, future firmware can be uploaded from PlatformIO using the
+`esp32dev_ota` environment:
+
+```sh
+pio run --environment esp32dev_ota --target upload
+```
+
+The local `ota.ini` targets `192.168.0.29` and contains the OTA authentication
+argument. It is excluded from Git because the authentication value must match
+`OTA_PASSWORD` in `include/secrets.h`. For another installation, copy
+`ota.example.ini` to `ota.ini`, then set the device IP, computer LAN IP, and
+matching password. The computer LAN IP is required so the ESP32 can connect
+back to PlatformIO's temporary upload server.
+
+In VS Code, select `esp32dev_ota` with the PlatformIO environment selector and
+use the normal Upload command. Keep the `esp32dev` environment available for
+the initial USB installation and recovery. The computer and ESP32 must be able
+to reach each other over the network.
 
 ## Runtime Behavior
 
