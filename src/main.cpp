@@ -27,13 +27,13 @@ uint8_t brightnessIndex = 3;  // start at 255
 const CRGB staticColorsList[] = {
   CRGB::White,                 // index 0
   CRGB(255,223,127),           // Sun (warm white) index 1
-  CRGB(255,165,0),             // Orange index 2
+  CRGB(255,80,10),             // Warm orange index 2
   CRGB::Blue,                  // Blue index 3
   CRGB::Red,                   // Red index 4
   CRGB::Green                  // Green index 5
 };
 const uint8_t NUM_STATIC_COLORS = sizeof(staticColorsList) / sizeof(staticColorsList[0]);
-uint8_t staticColorIndex = 0;           // start at White
+uint8_t staticColorIndex = 1;           // start at Sun
 CRGB   staticColor      = staticColorsList[staticColorIndex];
 
 // modes
